@@ -3,7 +3,7 @@ from torch import nn
 import torch
 from torch.nn import functional as F
 import numpy as np
-
+import config
 resnet = torchvision.models.resnet.resnet50(pretrained=True)
 
 
@@ -14,20 +14,24 @@ class Criterian(nn.Module):
         super(Criterian, self).__init__()
 
     def HNM(self, pred, target):
-
-        cpu_target = target.data.cpu().numpy()
         all_loss = F.mse_loss(pred, target, reduction='none')
 
-        positive = np.where(cpu_target != 0)[0]
-        negative = np.where(cpu_target == 0)[0]
+        pos_map = (target >= config.threshold_pos)
+        pos_num = torch.sum(pos_map).item()
+        neg_map = ~pos_map
+        # neg_num = torch.sum(neg_map).item()
+        neg_num = target.nelement() - pos_num
+        neg_num = min(pos_num * config.pos_neg_ratio, neg_num)
 
-        positive_loss = all_loss[positive]
-        negative_loss = all_loss[negative]
 
-        negative_loss_cpu = np.argsort(
-            -negative_loss.data.cpu().numpy())[0:min(min(1000, 4*positive_loss.shape[0]), negative_loss.shape[0])]
+        if neg_num == 0 or pos_num == 0:
+            selected_mask = torch.ones_like(all_loss)
+        else:
+            neg_score = all_loss[neg_map]
+            neg_loss_threshold = -torch.kthvalue(-neg_score, k = neg_num)[0]
+            selected_mask = ((all_loss >= neg_loss_threshold) | pos_map).float()
 
-        return (positive_loss.sum() + negative_loss[negative_loss_cpu].sum())/(positive_loss.shape[0] + negative_loss_cpu.shape[0])
+        return (all_loss * selected_mask).sum() / selected_mask.sum()
 
     def forward(self, output, weight, weight_affinity):
 

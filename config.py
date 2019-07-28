@@ -33,3 +33,4 @@ threshold_affinity = 0.5
 threshold_fscore = 0.5
 threshold_first_character = 0.5
 threshold_boundary = 0.5
+threshold_pos = 0.1
