@@ -2,3 +2,6 @@ cache.pkl
 model/*
 input/*
 Temporary/*
+
+.ipynb_checkpoints/
+__pycache__/
